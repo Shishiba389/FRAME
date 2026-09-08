@@ -1,0 +1,483 @@
+<Window x:Class="BicubicResizeDropTest.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:local="clr-namespace:BicubicResizeDropTest"
+        Title="MINIMA — Image Resize Studio"
+        Icon="/minima-256.png"
+        Width="1220" Height="820" MinWidth="680" MinHeight="620"
+        Background="#F4F5F7" FontFamily="Segoe UI Variable Text, Segoe UI" FontSize="13"
+        WindowStartupLocation="CenterScreen"
+        SizeChanged="Window_SizeChanged">
+    <Window.Resources>
+        <local:NullToVisibilityConverter x:Key="ShowWhenNull"/>
+        <local:NullToVisibilityConverter x:Key="ShowWhenNotNull" Invert="True"/>
+        <local:PhaseToBrushConverter x:Key="PhaseToBrush"/>
+        <BooleanToVisibilityConverter x:Key="BoolVis"/>
+
+        <FontFamily x:Key="Heading">Segoe UI Variable Display, Segoe UI, Arial</FontFamily>
+        <FontFamily x:Key="Numeric">Consolas, Cascadia Code, Courier New</FontFamily>
+
+        <Style x:Key="Caption" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="10"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+            <Setter Property="Foreground" Value="#8C9199"/>
+        </Style>
+
+        <!-- Modern Soft UI card: 20px radius, borderless, soft drop shadow. -->
+        <Style x:Key="Card" TargetType="Border">
+            <Setter Property="Background" Value="#FFFFFF"/>
+            <Setter Property="CornerRadius" Value="20"/>
+            <Setter Property="Padding" Value="24"/>
+            <Setter Property="Effect">
+                <Setter.Value>
+                    <DropShadowEffect BlurRadius="24" ShadowDepth="2" Direction="270" Color="#000000" Opacity="0.05"/>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Soft-filled input: borderless, filled tone, radius 12. Border glow eased on focus. -->
+        <Style x:Key="FlatBox" TargetType="TextBox">
+            <Setter Property="Background" Value="#F8F9FA"/>
+            <Setter Property="Foreground" Value="#1A1D1E"/>
+            <Setter Property="BorderThickness" Value="1.5"/>
+            <Setter Property="Padding" Value="14,10"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+            <Setter Property="BorderBrush">
+                <Setter.Value>
+                    <SolidColorBrush Color="#F8F9FA"/>
+                </Setter.Value>
+            </Setter>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="TextBox">
+                        <Border Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="12">
+                            <ScrollViewer x:Name="PART_ContentHost" Padding="{TemplateBinding Padding}" VerticalAlignment="Center"/>
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+            <Style.Triggers>
+                <Trigger Property="IsKeyboardFocusWithin" Value="True">
+                    <Trigger.EnterActions>
+                        <BeginStoryboard>
+                            <Storyboard>
+                                <ColorAnimation Storyboard.TargetProperty="BorderBrush.Color" To="#111111" Duration="0:0:0.2"/>
+                            </Storyboard>
+                        </BeginStoryboard>
+                    </Trigger.EnterActions>
+                    <Trigger.ExitActions>
+                        <BeginStoryboard>
+                            <Storyboard>
+                                <ColorAnimation Storyboard.TargetProperty="BorderBrush.Color" To="#F8F9FA" Duration="0:0:0.2"/>
+                            </Storyboard>
+                        </BeginStoryboard>
+                    </Trigger.ExitActions>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
+        <Style x:Key="DimensionBox" TargetType="TextBox" BasedOn="{StaticResource FlatBox}">
+            <Setter Property="FontFamily" Value="{StaticResource Numeric}"/>
+            <Setter Property="FontSize" Value="20"/>
+            <Setter Property="TextAlignment" Value="Center"/>
+        </Style>
+
+        <!-- Pill button base with hover 1.02× / press 0.98× tactile feedback. -->
+        <Style x:Key="ButtonBase" TargetType="Button">
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Bg" Background="{TemplateBinding Background}" CornerRadius="24"
+                                Padding="{TemplateBinding Padding}" SnapsToDevicePixels="True"
+                                RenderTransformOrigin="0.5,0.5">
+                            <Border.RenderTransform>
+                                <ScaleTransform x:Name="Scale" ScaleX="1" ScaleY="1"/>
+                            </Border.RenderTransform>
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <EventTrigger RoutedEvent="MouseEnter">
+                                <BeginStoryboard>
+                                    <Storyboard>
+                                        <DoubleAnimation Storyboard.TargetName="Scale" Storyboard.TargetProperty="ScaleX" To="1.02" Duration="0:0:0.15"><DoubleAnimation.EasingFunction><SineEase EasingMode="EaseOut"/></DoubleAnimation.EasingFunction></DoubleAnimation>
+                                        <DoubleAnimation Storyboard.TargetName="Scale" Storyboard.TargetProperty="ScaleY" To="1.02" Duration="0:0:0.15"><DoubleAnimation.EasingFunction><SineEase EasingMode="EaseOut"/></DoubleAnimation.EasingFunction></DoubleAnimation>
+                                    </Storyboard>
+                                </BeginStoryboard>
+                            </EventTrigger>
+                            <EventTrigger RoutedEvent="MouseLeave">
+                                <BeginStoryboard>
+                                    <Storyboard>
+                                        <DoubleAnimation Storyboard.TargetName="Scale" Storyboard.TargetProperty="ScaleX" To="1.0" Duration="0:0:0.15"/>
+                                        <DoubleAnimation Storyboard.TargetName="Scale" Storyboard.TargetProperty="ScaleY" To="1.0" Duration="0:0:0.15"/>
+                                    </Storyboard>
+                                </BeginStoryboard>
+                            </EventTrigger>
+                            <EventTrigger RoutedEvent="PreviewMouseLeftButtonDown">
+                                <BeginStoryboard>
+                                    <Storyboard>
+                                        <DoubleAnimation Storyboard.TargetName="Scale" Storyboard.TargetProperty="ScaleX" To="0.98" Duration="0:0:0.08"/>
+                                        <DoubleAnimation Storyboard.TargetName="Scale" Storyboard.TargetProperty="ScaleY" To="0.98" Duration="0:0:0.08"/>
+                                    </Storyboard>
+                                </BeginStoryboard>
+                            </EventTrigger>
+                            <EventTrigger RoutedEvent="PreviewMouseLeftButtonUp">
+                                <BeginStoryboard>
+                                    <Storyboard>
+                                        <DoubleAnimation Storyboard.TargetName="Scale" Storyboard.TargetProperty="ScaleX" To="1.02" Duration="0:0:0.12"/>
+                                        <DoubleAnimation Storyboard.TargetName="Scale" Storyboard.TargetProperty="ScaleY" To="1.02" Duration="0:0:0.12"/>
+                                    </Storyboard>
+                                </BeginStoryboard>
+                            </EventTrigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter TargetName="Bg" Property="Background" Value="#EFEFEF"/>
+                                <Setter Property="Foreground" Value="#B8BDC4"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <Style x:Key="PrimaryButton" TargetType="Button" BasedOn="{StaticResource ButtonBase}">
+            <Setter Property="Background" Value="#111111"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="Padding" Value="24,12"/>
+        </Style>
+        <Style x:Key="SecondaryButton" TargetType="Button" BasedOn="{StaticResource ButtonBase}">
+            <Setter Property="Background" Value="#EFEFEF"/>
+            <Setter Property="Foreground" Value="#1A1D1E"/>
+            <Setter Property="Padding" Value="20,12"/>
+        </Style>
+        <Style x:Key="GhostButton" TargetType="Button" BasedOn="{StaticResource ButtonBase}">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Foreground" Value="#1A1D1E"/>
+            <Setter Property="Padding" Value="20,12"/>
+        </Style>
+        <!-- Pager arrows now live over a light dropzone, so dark glyph on white surface reads better. -->
+        <Style x:Key="StageIconButton" TargetType="Button" BasedOn="{StaticResource ButtonBase}">
+            <Setter Property="Background" Value="#FFFFFF"/>
+            <Setter Property="Foreground" Value="#1A1D1E"/>
+            <Setter Property="Padding" Value="8"/>
+            <Setter Property="MinWidth" Value="40"/>
+            <Setter Property="MinHeight" Value="40"/>
+        </Style>
+
+        <!-- Preset / format pill toggle. Uses plain Setter for correct initial-state color. -->
+        <Style x:Key="PresetToggle" TargetType="RadioButton">
+            <Setter Property="Padding" Value="12,12"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="HorizontalContentAlignment" Value="Center"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="RadioButton">
+                        <Border x:Name="Bg" CornerRadius="24" Padding="{TemplateBinding Padding}" Background="#EFEFEF">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter TargetName="Bg" Property="Background" Value="#111111"/>
+                                <Setter Property="Foreground" Value="White"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Preview stage: soft-grey dropzone, dashed rectangle in empty state, image fills when loaded.
+             Border cannot render a dashed stroke, so we overlay a Rectangle with StrokeDashArray. -->
+        <DataTemplate x:Key="PreviewStage">
+            <Grid AllowDrop="True" DragEnter="PreviewBorder_DragEnter" DragLeave="PreviewBorder_DragLeave" Drop="PreviewBorder_Drop" Background="Transparent">
+                <Border Background="#F8F9FA" CornerRadius="16" MinHeight="260"/>
+                <!-- Dashed dropzone border — only when no image is loaded. -->
+                <Rectangle Stroke="#D0D5DD" StrokeThickness="2" StrokeDashArray="4 4" RadiusX="16" RadiusY="16"
+                           IsHitTestVisible="False" Margin="1"
+                           Visibility="{Binding PreviewImage, Converter={StaticResource ShowWhenNull}}"/>
+
+                <!-- Empty state: icon-in-circle + prompt copy -->
+                <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center"
+                            Visibility="{Binding PreviewImage, Converter={StaticResource ShowWhenNull}}">
+                    <Border Width="56" Height="56" CornerRadius="28" Background="#EFEFEF" Margin="0,0,0,16" HorizontalAlignment="Center">
+                        <TextBlock Text="📁" FontSize="24" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    </Border>
+                    <TextBlock Text="{Binding PreviewHeading}" Foreground="#111111" FontSize="16" FontWeight="Bold"
+                               TextWrapping="Wrap" HorizontalAlignment="Center" TextAlignment="Center"/>
+                    <TextBlock Text="{Binding PreviewSubtitle}" Foreground="#8C9199" FontSize="12" Margin="0,6,0,0"
+                               TextWrapping="Wrap" HorizontalAlignment="Center" TextAlignment="Center"/>
+                </StackPanel>
+
+                <!-- Loaded state: image + caption -->
+                <DockPanel Margin="16" Visibility="{Binding PreviewImage, Converter={StaticResource ShowWhenNotNull}}">
+                    <TextBlock DockPanel.Dock="Bottom" Text="{Binding PreviewCaption}" Foreground="#8C9199" FontSize="10" Margin="0,10,0,0"/>
+                    <Image Source="{Binding PreviewImage, NotifyOnTargetUpdated=True}" Stretch="Uniform" TargetUpdated="PreviewImage_TargetUpdated"/>
+                </DockPanel>
+
+                <!-- Drag pulse: turn the dashed border accent-red and pulse opacity while the folder hovers. -->
+                <Rectangle Stroke="#C84B31" StrokeThickness="2.5" StrokeDashArray="4 4" RadiusX="16" RadiusY="16"
+                           IsHitTestVisible="False" Margin="1"
+                           Visibility="{Binding IsDragOver, Converter={StaticResource BoolVis}}">
+                    <Rectangle.Resources>
+                        <Style TargetType="Rectangle">
+                            <Style.Triggers>
+                                <EventTrigger RoutedEvent="Loaded">
+                                    <BeginStoryboard>
+                                        <Storyboard RepeatBehavior="Forever" AutoReverse="True">
+                                            <DoubleAnimation Storyboard.TargetProperty="Opacity" From="0.4" To="1.0" Duration="0:0:0.7"/>
+                                        </Storyboard>
+                                    </BeginStoryboard>
+                                </EventTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </Rectangle.Resources>
+                </Rectangle>
+
+                <!-- Pager pill + < > arrows, only when images are loaded. -->
+                <Border Background="#FFFFFF" CornerRadius="14" Padding="12,4" VerticalAlignment="Top" HorizontalAlignment="Right" Margin="16"
+                        Visibility="{Binding HasImages, Converter={StaticResource BoolVis}}"
+                        BorderBrush="#EFEFEF" BorderThickness="1">
+                    <TextBlock Text="{Binding PagerLabel}" Foreground="#1A1D1E" FontSize="11" FontWeight="SemiBold"/>
+                </Border>
+                <Button Style="{StaticResource StageIconButton}" Content="‹" FontSize="20"
+                        VerticalAlignment="Center" HorizontalAlignment="Left" Margin="16,0,0,0"
+                        Visibility="{Binding HasImages, Converter={StaticResource BoolVis}}"
+                        IsEnabled="{Binding CanPagePrev}" Click="PagePrev_Click"/>
+                <Button Style="{StaticResource StageIconButton}" Content="›" FontSize="20"
+                        VerticalAlignment="Center" HorizontalAlignment="Right" Margin="0,0,16,0"
+                        Visibility="{Binding HasImages, Converter={StaticResource BoolVis}}"
+                        IsEnabled="{Binding CanPageNext}" Click="PageNext_Click"/>
+            </Grid>
+        </DataTemplate>
+
+        <!-- [W] × [H] [🔓] -->
+        <DataTemplate x:Key="DimensionsRow">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <TextBox Grid.Column="0" Style="{StaticResource DimensionBox}"
+                         Text="{Binding Width, Mode=TwoWay, UpdateSourceTrigger=LostFocus}"
+                         PreviewTextInput="NumericOnly_PreviewTextInput"/>
+                <TextBlock Grid.Column="1" Text="✕" Foreground="#8C9199" FontSize="16" Margin="12,0" VerticalAlignment="Center"/>
+                <TextBox Grid.Column="2" Style="{StaticResource DimensionBox}"
+                         Text="{Binding Height, Mode=TwoWay, UpdateSourceTrigger=LostFocus}"
+                         PreviewTextInput="NumericOnly_PreviewTextInput"/>
+                <ToggleButton Grid.Column="3" IsChecked="{Binding LockAspectRatio, Mode=TwoWay}"
+                              ToolTip="Lock aspect ratio between width and height"
+                              Width="44" Height="44" Cursor="Hand" Margin="10,0,0,0"
+                              Background="Transparent" BorderThickness="0">
+                    <ToggleButton.Template>
+                        <ControlTemplate TargetType="ToggleButton">
+                            <Border x:Name="LockBg" CornerRadius="22" Background="#EFEFEF">
+                                <TextBlock x:Name="LockGlyph" Text="🔓" FontSize="16" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            </Border>
+                            <ControlTemplate.Triggers>
+                                <Trigger Property="IsChecked" Value="True">
+                                    <Setter TargetName="LockBg" Property="Background" Value="#111111"/>
+                                    <Setter TargetName="LockGlyph" Property="Text" Value="🔒"/>
+                                    <Setter TargetName="LockGlyph" Property="Foreground" Value="White"/>
+                                </Trigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </ToggleButton.Template>
+                </ToggleButton>
+            </Grid>
+        </DataTemplate>
+
+        <DataTemplate x:Key="FormatRow">
+            <StackPanel>
+                <TextBlock Style="{StaticResource Caption}" Margin="0,0,0,6" Text="OUTPUT FORMAT"/>
+                <UniformGrid Columns="3" Margin="0,0,0,16">
+                    <RadioButton Style="{StaticResource PresetToggle}" Content="PNG"  IsChecked="{Binding IsPng, Mode=TwoWay}"  Margin="0,0,4,0"/>
+                    <RadioButton Style="{StaticResource PresetToggle}" Content="JPG"  IsChecked="{Binding IsJpeg, Mode=TwoWay}" Margin="4,0"/>
+                    <RadioButton Style="{StaticResource PresetToggle}" Content="WEBP" IsChecked="{Binding IsWebp, Mode=TwoWay}" Margin="4,0,0,0"/>
+                </UniformGrid>
+                <StackPanel Visibility="{Binding IsJpeg, Converter={StaticResource BoolVis}}" Margin="0,0,0,16">
+                    <TextBlock Style="{StaticResource Caption}" Margin="0,0,0,6" Text="JPG BACKGROUND FOR TRANSPARENT PIXELS"/>
+                    <UniformGrid Columns="2">
+                        <RadioButton Style="{StaticResource PresetToggle}" GroupName="JpegBackground" Content="WHITE" IsChecked="{Binding IsJpegBackgroundWhite, Mode=TwoWay}" Margin="0,0,4,0"/>
+                        <RadioButton Style="{StaticResource PresetToggle}" GroupName="JpegBackground" Content="BLACK" IsChecked="{Binding IsJpegBackgroundBlack, Mode=TwoWay}" Margin="4,0,0,0"/>
+                    </UniformGrid>
+                </StackPanel>
+                <TextBlock Style="{StaticResource Caption}" Margin="0,0,0,6" Text="FILENAME SUFFIX (OPTIONAL)"/>
+                <TextBox Style="{StaticResource FlatBox}" Text="{Binding NamingSuffix, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" ToolTip="Appended before the size suffix, e.g. myphoto_resized_320x240.png"/>
+            </StackPanel>
+        </DataTemplate>
+    </Window.Resources>
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+
+        <!-- HEADER -->
+        <Border Grid.Row="0" Padding="28,18">
+            <DockPanel LastChildFill="False">
+                <StackPanel DockPanel.Dock="Left" Orientation="Horizontal" VerticalAlignment="Center">
+                    <Image Source="/minima-256.png" Width="32" Height="32" Margin="0,0,10,0"
+                           RenderOptions.BitmapScalingMode="HighQuality"/>
+                    <TextBlock FontFamily="{StaticResource Heading}" FontSize="22" FontWeight="Bold" Foreground="#1A1D1E" Text="MINIMA" VerticalAlignment="Center"/>
+                    <TextBlock FontSize="13" Foreground="#8C9199" Margin="10,0,0,0" Text="/ THE RESIZE STUDIO" VerticalAlignment="Center"/>
+                </StackPanel>
+                <TextBlock DockPanel.Dock="Right" FontSize="11" Foreground="#8C9199" Text="● LOCAL FILES. YOUR CONTROL." VerticalAlignment="Center"/>
+            </DockPanel>
+        </Border>
+
+        <!-- ============ LANDSCAPE (wide) ============ -->
+        <Grid x:Name="LandscapeRoot" Grid.Row="1" Margin="24,4,24,24">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+
+            <Grid Grid.Row="0">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="1*"/>
+                    <ColumnDefinition Width="24"/>
+                    <ColumnDefinition Width="1*"/>
+                </Grid.ColumnDefinitions>
+
+                <!-- COLUMN 1: SOURCE -->
+                <Border Style="{StaticResource Card}" Grid.Column="0">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="*"/>
+                            <RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
+                        <TextBlock Style="{StaticResource Caption}" Margin="0,0,0,14" Text="{Binding SourceCaption}"/>
+                        <ContentControl Grid.Row="1" Margin="0,0,0,14" ContentTemplate="{StaticResource PreviewStage}" Content="{Binding}"/>
+                        <StackPanel Grid.Row="2">
+                            <TextBlock Text="{Binding SourceFolder}" ToolTip="{Binding SourceFolder}"
+                                       TextTrimming="CharacterEllipsis" Padding="4,0,4,10" Foreground="#8C9199" FontSize="11"/>
+                            <Button Style="{StaticResource SecondaryButton}" Content="Browse Folder…" Padding="0,12"
+                                    HorizontalAlignment="Stretch" Click="BrowseInput_Click"/>
+                        </StackPanel>
+                    </Grid>
+                </Border>
+
+                <!-- COLUMN 2: SETTINGS -->
+                <Border Style="{StaticResource Card}" Grid.Column="2">
+                    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                        <StackPanel>
+                            <TextBlock Style="{StaticResource Caption}" Margin="0,0,0,14" Text="02 / THE PRINT TICKET"/>
+                            <TextBlock FontFamily="{StaticResource Heading}" FontSize="30" FontWeight="Bold" Foreground="#1A1D1E" Margin="0,0,0,22" Text="Make it fit."/>
+
+                            <TextBlock Style="{StaticResource Caption}" Margin="0,0,0,8" Text="TARGET DIMENSIONS"/>
+                            <ContentControl Margin="0,0,0,20" ContentTemplate="{StaticResource DimensionsRow}" Content="{Binding}"/>
+
+                            <TextBlock Style="{StaticResource Caption}" Margin="0,0,0,8" Text="QUICK PRESETS"/>
+                            <UniformGrid Columns="3" Margin="0,0,0,6">
+                                <RadioButton Style="{StaticResource PresetToggle}" GroupName="PresetsWide" Content="Square"   Tag="Square"   IsChecked="{Binding IsSquarePreset,   Mode=OneWay}" Click="PresetButton_Click" Margin="0,0,4,0"/>
+                                <RadioButton Style="{StaticResource PresetToggle}" GroupName="PresetsWide" Content="Portrait" Tag="Portrait" IsChecked="{Binding IsPortraitPreset, Mode=OneWay}" Click="PresetButton_Click" Margin="4,0"/>
+                                <RadioButton Style="{StaticResource PresetToggle}" GroupName="PresetsWide" Content="Wide"     Tag="Wide"     IsChecked="{Binding IsWidePreset,     Mode=OneWay}" Click="PresetButton_Click" Margin="4,0,0,0"/>
+                            </UniformGrid>
+                            <TextBlock Text="{Binding DimensionsSummary}" Foreground="#C84B31" FontFamily="{StaticResource Numeric}" FontSize="11" Margin="0,6,0,22"/>
+
+                            <ContentControl ContentTemplate="{StaticResource FormatRow}" Content="{Binding}" Margin="0,0,0,20"/>
+
+                            <TextBlock Style="{StaticResource Caption}" Margin="0,0,0,8" Text="DESTINATION FOLDER"/>
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBox Grid.Column="0" Style="{StaticResource FlatBox}"
+                                         Text="{Binding DestinationFolder, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+                                <Button Grid.Column="1" Style="{StaticResource SecondaryButton}" Content="Change" Margin="10,0,0,0"
+                                        Click="BrowseDestination_Click"/>
+                            </Grid>
+                        </StackPanel>
+                    </ScrollViewer>
+                </Border>
+            </Grid>
+
+            <!-- BOTTOM DOCK: now sits on canvas, not a filled bar, to match the floaty-card vibe. -->
+            <Border Grid.Row="1" Padding="8,20,8,0">
+                <DockPanel>
+                    <StackPanel DockPanel.Dock="Left" Orientation="Horizontal" VerticalAlignment="Center">
+                        <Ellipse Fill="{Binding PhaseText, Converter={StaticResource PhaseToBrush}}" Height="10" Width="10" Margin="0,0,10,0"/>
+                        <StackPanel>
+                            <TextBlock FontSize="12" FontWeight="SemiBold" Foreground="#1A1D1E" Text="{Binding PhaseText}"/>
+                            <TextBlock FontSize="11" Foreground="#8C9199" Text="{Binding StatusText}"/>
+                        </StackPanel>
+                    </StackPanel>
+                    <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+                        <Button Style="{StaticResource GhostButton}" Content="Open Output" Margin="0,0,8,0" IsEnabled="{Binding OpenEnabled}" Click="OpenButton_Click"/>
+                        <Button Style="{StaticResource SecondaryButton}" Content="Cancel" Margin="0,0,8,0" IsEnabled="{Binding CancelEnabled}" Click="CancelButton_Click"/>
+                        <Button Style="{StaticResource PrimaryButton}" Content="Resize Folder →" IsEnabled="{Binding StartEnabled}" Click="ResizeButton_Click"/>
+                    </StackPanel>
+                    <ProgressBar Height="6" Minimum="0" Maximum="100" Value="{Binding ProgressValue, Mode=OneWay}" Margin="24,0,24,0" Background="#EFEFEF" Foreground="#111111"
+                                 BorderThickness="0"/>
+                </DockPanel>
+            </Border>
+        </Grid>
+
+        <!-- ============ COMPACT ============ -->
+        <ScrollViewer x:Name="CompactRoot" Grid.Row="1" Visibility="Collapsed"
+                      HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
+            <StackPanel Margin="16">
+                <Border Style="{StaticResource Card}" Margin="0,0,0,12">
+                    <StackPanel>
+                        <TextBlock Style="{StaticResource Caption}" Margin="0,0,0,10" Text="{Binding SourceCaption}"/>
+                        <ContentControl ContentTemplate="{StaticResource PreviewStage}" Content="{Binding}" Margin="0,0,0,12"/>
+                        <TextBlock Text="{Binding SourceFolder}" ToolTip="{Binding SourceFolder}"
+                                   TextTrimming="CharacterEllipsis" Padding="4,0,4,10" Foreground="#8C9199" FontSize="11"/>
+                        <Button Style="{StaticResource SecondaryButton}" Content="Browse Folder…" Padding="0,12"
+                                HorizontalAlignment="Stretch" Click="BrowseInput_Click"/>
+                    </StackPanel>
+                </Border>
+
+                <Border Style="{StaticResource Card}" Margin="0,0,0,12">
+                    <StackPanel>
+                        <TextBlock Style="{StaticResource Caption}" Margin="0,0,0,14" Text="02 / EXPORT CONFIG"/>
+                        <ContentControl Margin="0,0,0,16" ContentTemplate="{StaticResource DimensionsRow}" Content="{Binding}"/>
+                        <UniformGrid Columns="3" Margin="0,0,0,6">
+                            <RadioButton Style="{StaticResource PresetToggle}" GroupName="PresetsCompact" Content="Square"   Tag="Square"   IsChecked="{Binding IsSquarePreset,   Mode=OneWay}" Click="PresetButton_Click" Margin="0,0,4,0"/>
+                            <RadioButton Style="{StaticResource PresetToggle}" GroupName="PresetsCompact" Content="Portrait" Tag="Portrait" IsChecked="{Binding IsPortraitPreset, Mode=OneWay}" Click="PresetButton_Click" Margin="4,0"/>
+                            <RadioButton Style="{StaticResource PresetToggle}" GroupName="PresetsCompact" Content="Wide"     Tag="Wide"     IsChecked="{Binding IsWidePreset,     Mode=OneWay}" Click="PresetButton_Click" Margin="4,0,0,0"/>
+                        </UniformGrid>
+                        <TextBlock Text="{Binding DimensionsSummary}" Foreground="#C84B31" FontFamily="{StaticResource Numeric}" FontSize="11" Margin="0,6,0,16"/>
+                        <ContentControl ContentTemplate="{StaticResource FormatRow}" Content="{Binding}" Margin="0,0,0,16"/>
+                        <TextBlock Style="{StaticResource Caption}" Margin="0,0,0,8" Text="DESTINATION"/>
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBox Grid.Column="0" Style="{StaticResource FlatBox}"
+                                     Text="{Binding DestinationFolder, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+                            <Button Grid.Column="1" Style="{StaticResource SecondaryButton}" Content="…" Margin="8,0,0,0" Click="BrowseDestination_Click"/>
+                        </Grid>
+                    </StackPanel>
+                </Border>
+
+                <StackPanel Orientation="Horizontal" Margin="4,0,4,10">
+                    <Ellipse Fill="{Binding PhaseText, Converter={StaticResource PhaseToBrush}}" Height="10" Width="10" Margin="0,0,10,0"/>
+                    <StackPanel>
+                        <TextBlock FontSize="12" FontWeight="SemiBold" Foreground="#1A1D1E" Text="{Binding PhaseText}"/>
+                        <TextBlock FontSize="11" Foreground="#8C9199" Text="{Binding StatusText}" TextWrapping="Wrap"/>
+                    </StackPanel>
+                </StackPanel>
+                <ProgressBar Height="6" Minimum="0" Maximum="100" Value="{Binding ProgressValue, Mode=OneWay}" Margin="4,0,4,16" Background="#EFEFEF" Foreground="#111111" BorderThickness="0"/>
+
+                <Button Style="{StaticResource PrimaryButton}" Content="Resize Folder →" Margin="0,0,0,8"
+                        IsEnabled="{Binding StartEnabled}" Click="ResizeButton_Click"/>
+                <Grid Margin="0,0,0,16">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="12"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <Button Grid.Column="0" Style="{StaticResource GhostButton}" Content="Open Output" IsEnabled="{Binding OpenEnabled}" Click="OpenButton_Click"/>
+                    <Button Grid.Column="2" Style="{StaticResource SecondaryButton}" Content="Cancel" IsEnabled="{Binding CancelEnabled}" Click="CancelButton_Click"/>
+                </Grid>
+            </StackPanel>
+        </ScrollViewer>
+    </Grid>
+</Window>
